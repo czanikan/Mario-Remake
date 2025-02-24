@@ -330,6 +330,8 @@
 -r:"C:/Users/gob-boi/Documents/GitHub/Mario-Remake/Mario Remake/Library/PackageCache/com.unity.burst@1.6.5/Unity.Burst.Unsafe.dll"
 -r:"C:/Users/gob-boi/Documents/GitHub/Mario-Remake/Mario Remake/Library/PackageCache/com.unity.nuget.newtonsoft-json@3.0.2/Runtime/Newtonsoft.Json.dll"
 -r:"Library/Bee/artifacts/1900b0aE.dag/Analytics.ref.dll"
+-r:"Library/Bee/artifacts/1900b0aE.dag/Cinemachine.ref.dll"
+-r:"Library/Bee/artifacts/1900b0aE.dag/com.unity.cinemachine.editor.ref.dll"
 -r:"Library/Bee/artifacts/1900b0aE.dag/PPv2URPConverters.ref.dll"
 -r:"Library/Bee/artifacts/1900b0aE.dag/Purchasing.Common.ref.dll"
 -r:"Library/Bee/artifacts/1900b0aE.dag/Unity.2D.Sprite.Editor.ref.dll"
@@ -375,6 +377,12 @@
 -r:"Library/Bee/artifacts/1900b0aE.dag/UnityEngine.SpatialTracking.ref.dll"
 -r:"Library/Bee/artifacts/1900b0aE.dag/UnityEngine.UI.ref.dll"
 -r:"Library/Bee/artifacts/1900b0aE.dag/UnityEngine.XR.LegacyInputHelpers.ref.dll"
+"Assets/FarlandSkies/Demo/Scripts/Player/FPSWalkerEnhanced.cs"
+"Assets/FarlandSkies/Demo/Scripts/Player/SmoothMouseLook.cs"
+"Assets/FarlandSkies/Demo/Scripts/Skybox/SkyboxChanger.cs"
+"Assets/FarlandSkies/Demo/Scripts/Skybox/SkyboxRotator.cs"
+"Assets/PlayerController.cs"
+"Assets/QuickOutline/Scripts/Outline.cs"
 "Assets/TutorialInfo/Scripts/Readme.cs"
 -langversion:9.0
 

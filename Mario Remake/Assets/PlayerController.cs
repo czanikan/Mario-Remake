@@ -20,12 +20,15 @@ public class PlayerController : MonoBehaviour
 
     [Header("Jumping")]
     [SerializeField] float jumpForce = 2f;
+    [SerializeField] float jumpTime = 2f;
     [SerializeField] float fallMultiplier = 1.5f;
     [SerializeField] float gravity = -9.81f;
     [SerializeField] float groundCheckDistance = 0.2f;
     [SerializeField] LayerMask groundMask;
+    private float jumpTimeCounter;
     private Vector3 velocity;
     private bool isGrounded;
+    private bool isJumping;
 
     [Header("Camera")]
     [SerializeField] Transform cameraTransform;
@@ -34,6 +37,8 @@ public class PlayerController : MonoBehaviour
 
     [Header("Animation")]
     [SerializeField] float baseSpeed = 1f;
+    private float speed;
+    private Vector3 horizontalVelocity;
 
     private CharacterController controller;
 
@@ -42,6 +47,8 @@ public class PlayerController : MonoBehaviour
         controller = GetComponent<CharacterController>();
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+
+        jumpTimeCounter = jumpTime;
     }
 
     void Update()
@@ -56,26 +63,22 @@ public class PlayerController : MonoBehaviour
         float vertical = Input.GetAxisRaw("Vertical");
         Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
 
-        bool isChangingDirection = Vector3.Dot(previousDirection, inputDirection) < -0.3f && currentSpeed > moveSpeed * 0.5f;
+        bool isChangingDirection = Vector3.Dot(previousDirection, inputDirection) < -0.4f && currentSpeed > moveSpeed * 0.5f;
         bool isStopping = inputDirection.magnitude < 0.1f && currentSpeed > moveSpeed * 0.5f;
 
         if (isGrounded)
         {
-            if (isChangingDirection || isStopping)
+            if ((isChangingDirection || isStopping) && !isSkidding)
             {
-                if (!isSkidding && currentSpeed > moveSpeed * 0.5f)
-                {
-                    isSkidding = true;
-                    anim.SetTrigger("Skid");
-                }
-                
+                isSkidding = true;
+                anim.SetTrigger("Skid");
             }
 
             if (isSkidding)
             {
-                currentSpeed -= deceleration * 3f * Time.deltaTime;
+                currentSpeed -= skidDeceleration * Time.deltaTime;
 
-                if (currentSpeed <= moveSpeed * 0.2f || inputDirection.magnitude > 0.1f)
+                if (currentSpeed <= moveSpeed * 0.2f)
                 {
                     isSkidding = false;
                     anim.ResetTrigger("Skid");
@@ -91,19 +94,32 @@ public class PlayerController : MonoBehaviour
                     moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
                     currentSpeed = Mathf.MoveTowards(currentSpeed, moveSpeed, acceleration * Time.deltaTime);
 
-                    Vector3 horizontalVelocity = new Vector3(controller.velocity.x, 0, controller.velocity.z);
-                    float speed = horizontalVelocity.magnitude / 5f;
-
-                    anim.speed = Mathf.Max(speed / baseSpeed, 0.1f);
+                    anim.speed = Mathf.Max(speed / baseSpeed, 0.5f);
                 }
                 else
                 {
                     currentSpeed = Mathf.MoveTowards(currentSpeed, 0f, deceleration * Time.deltaTime);
+                    anim.speed = 1f;
                 }
             }
         }
+        else // Limit movement when in air
+        {
+            // Reduce movement speed when not on the ground
+            float airControlFactor = 0.5f; 
+            moveDirection = Vector3.Lerp(moveDirection, Vector3.zero, airControlFactor * Time.deltaTime);
+            currentSpeed = Mathf.MoveTowards(currentSpeed, 0f, deceleration * Time.deltaTime);
+
+            anim.speed = 1f;
+        }
+
 
         controller.Move(moveDirection.normalized * currentSpeed * Time.deltaTime);
+
+        horizontalVelocity = new Vector3(controller.velocity.x, 0, controller.velocity.z);
+        speed = horizontalVelocity.magnitude / 5f;
+
+        Debug.Log(horizontalVelocity);
 
         anim.SetFloat("Speed", controller.velocity.magnitude);
         anim.SetBool("isGrounded", isGrounded);
@@ -119,23 +135,41 @@ public class PlayerController : MonoBehaviour
         if (isGrounded && velocity.y < 0)
         {
             velocity.y = -2f;
-            anim.SetBool("isGrounded", true);
-        }
-        else
-        {
-            anim.SetBool("isGrounded", false);
         }
 
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
+            isJumping = true;
             velocity.y = Mathf.Sqrt(jumpForce * -2f * gravity);
+            jumpTimeCounter = jumpTime;
             anim.SetTrigger("Jump");
-
             Instantiate(jumpDust, transform.position, Quaternion.identity);
+            anim.speed = 1;
+        }
+
+        if (Input.GetButton("Jump") && isJumping)
+        {
+            if (jumpTimeCounter > 0)
+            {
+                velocity.y = Mathf.Sqrt(jumpForce * -2f * gravity);
+                jumpTimeCounter -= Time.deltaTime;
+            }
+            else
+            {
+                isJumping = false;
+            }
+        }
+
+        if (Input.GetButtonUp("Jump"))
+        {
+            isJumping = false;
         }
 
         velocity.y += gravity * (velocity.y < 0 ? fallMultiplier : 1f) * Time.deltaTime;
 
-        controller.Move((moveDirection.normalized * currentSpeed + new Vector3(0, velocity.y, 0)) * Time.deltaTime);
+        controller.Move(velocity * Time.deltaTime);
+
+        anim.SetBool("isGrounded", isGrounded);
     }
+
 }

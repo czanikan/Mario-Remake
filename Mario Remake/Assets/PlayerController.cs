@@ -4,32 +4,38 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-    public CharacterController controller;
     [SerializeField] Animator anim;
     [SerializeField] GameObject jumpDust;
     [SerializeField] ParticleSystem footDust;
 
     [Header("Movement")]
-    public float moveSpeed = 4f;
-    public float runSpeed = 8f;
-    public float acceleration = 10f;
-    public float deceleration = 15f;
+    [SerializeField] float moveSpeed = 4f;
+    [SerializeField] float acceleration = 10f;
+    [SerializeField] float deceleration = 15f;
+    [SerializeField] float skidDeceleration = 30f;
     private float currentSpeed;
-    private Vector3 moveDirection;
+    private Vector3 moveDirection = Vector3.zero;
+    private Vector3 previousDirection = Vector3.zero;
+    private bool isSkidding = false;
 
     [Header("Jumping")]
-    public float jumpHeight = 2f;
-    public float gravity = -9.81f;
+    [SerializeField] float jumpForce = 2f;
+    [SerializeField] float fallMultiplier = 1.5f;
+    [SerializeField] float gravity = -9.81f;
+    [SerializeField] float groundCheckDistance = 0.2f;
+    [SerializeField] LayerMask groundMask;
     private Vector3 velocity;
     private bool isGrounded;
 
     [Header("Camera")]
-    public Transform cameraTransform;
-    public float turnSmoothTime = 0.1f;
+    [SerializeField] Transform cameraTransform;
+    [SerializeField] float turnSmoothTime = 0.1f;
     private float turnSmoothVelocity;
 
     [Header("Animation")]
-    public float baseSpeed = 1f;
+    [SerializeField] float baseSpeed = 1f;
+
+    private CharacterController controller;
 
     void Start()
     {
@@ -40,76 +46,96 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        
         HandleMovement();
         HandleJumping();
     }
 
     void HandleMovement()
     {
-        isGrounded = controller.isGrounded;
-
         float horizontal = Input.GetAxisRaw("Horizontal");
         float vertical = Input.GetAxisRaw("Vertical");
-        Vector3 direction = new Vector3(horizontal, 0f, vertical).normalized;
+        Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
 
-        if (direction.magnitude >= 0.1f)
+        bool isChangingDirection = Vector3.Dot(previousDirection, inputDirection) < -0.3f && currentSpeed > moveSpeed * 0.5f;
+        bool isStopping = inputDirection.magnitude < 0.1f && currentSpeed > moveSpeed * 0.5f;
+
+        if (isGrounded)
         {
-            // Rotate towards movement direction
-            float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
-            float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, turnSmoothTime);
-            transform.rotation = Quaternion.Euler(0f, angle, 0f);
+            if (isChangingDirection || isStopping)
+            {
+                if (!isSkidding && currentSpeed > moveSpeed * 0.5f)
+                {
+                    isSkidding = true;
+                    anim.SetTrigger("Skid");
+                }
+                
+            }
 
-            // Calculate movement direction
-            Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+            if (isSkidding)
+            {
+                currentSpeed -= deceleration * 3f * Time.deltaTime;
 
-            // Accelerate and decelerate movement
-            float targetSpeed = Input.GetKey(KeyCode.LeftShift) ? runSpeed : moveSpeed;
-            if (currentSpeed < targetSpeed)
-                currentSpeed += acceleration * Time.deltaTime;
+                if (currentSpeed <= moveSpeed * 0.2f || inputDirection.magnitude > 0.1f)
+                {
+                    isSkidding = false;
+                    anim.ResetTrigger("Skid");
+                }
+            }
             else
-                currentSpeed -= deceleration * Time.deltaTime;
+            {
+                if (inputDirection.magnitude >= 0.1f)
+                {
+                    float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + Camera.main.transform.eulerAngles.y;
+                    float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, turnSmoothTime);
+                    transform.rotation = Quaternion.Euler(0f, angle, 0f);
+                    moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+                    currentSpeed = Mathf.MoveTowards(currentSpeed, moveSpeed, acceleration * Time.deltaTime);
 
-            currentSpeed = Mathf.Clamp(currentSpeed, 0, targetSpeed);
-            controller.Move(moveDir.normalized * currentSpeed * Time.deltaTime);
+                    Vector3 horizontalVelocity = new Vector3(controller.velocity.x, 0, controller.velocity.z);
+                    float speed = horizontalVelocity.magnitude / 5f;
 
-            footDust.enableEmission = true;
-
-            // Adjust animation speed dynamically
-
-            Vector3 horizontalVelocity = new Vector3(controller.velocity.x, 0, controller.velocity.z);
-            float speed = horizontalVelocity.magnitude / 5f;
-
-            anim.speed = Mathf.Max(speed / baseSpeed, 0.1f);
+                    anim.speed = Mathf.Max(speed / baseSpeed, 0.1f);
+                }
+                else
+                {
+                    currentSpeed = Mathf.MoveTowards(currentSpeed, 0f, deceleration * Time.deltaTime);
+                }
+            }
         }
-        else
-        {
-            // Decelerate when no input
-            currentSpeed = Mathf.Max(0, currentSpeed - deceleration * Time.deltaTime);
-            anim.speed = baseSpeed;
 
-            footDust.enableEmission = false;
-        }
+        controller.Move(moveDirection.normalized * currentSpeed * Time.deltaTime);
 
         anim.SetFloat("Speed", controller.velocity.magnitude);
         anim.SetBool("isGrounded", isGrounded);
+
+        if (inputDirection.magnitude > 0.1f)
+            previousDirection = inputDirection;
     }
 
     void HandleJumping()
     {
+        isGrounded = Physics.CheckSphere(transform.position, groundCheckDistance, groundMask);
+
         if (isGrounded && velocity.y < 0)
         {
-            velocity.y = -2f; // Small downward force to stick to ground
+            velocity.y = -2f;
+            anim.SetBool("isGrounded", true);
+        }
+        else
+        {
+            anim.SetBool("isGrounded", false);
         }
 
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
-            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            velocity.y = Mathf.Sqrt(jumpForce * -2f * gravity);
             anim.SetTrigger("Jump");
+
             Instantiate(jumpDust, transform.position, Quaternion.identity);
         }
 
-        velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
+        velocity.y += gravity * (velocity.y < 0 ? fallMultiplier : 1f) * Time.deltaTime;
+
+        controller.Move((moveDirection.normalized * currentSpeed + new Vector3(0, velocity.y, 0)) * Time.deltaTime);
     }
 }

@@ -381,6 +381,7 @@
 "Assets/FarlandSkies/Demo/Scripts/Player/SmoothMouseLook.cs"
 "Assets/FarlandSkies/Demo/Scripts/Skybox/SkyboxChanger.cs"
 "Assets/FarlandSkies/Demo/Scripts/Skybox/SkyboxRotator.cs"
+"Assets/Mario64CharacterController.cs"
 "Assets/PlayerController.cs"
 "Assets/QuickOutline/Scripts/Outline.cs"
 "Assets/TutorialInfo/Scripts/Readme.cs"

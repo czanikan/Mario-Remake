@@ -31,6 +31,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] LayerMask groundMask;
     private float jumpTimeCounter;
     private float lastGroundedTime;
+    private float speedAtJump;
     private int jumpCount = 0;
     private Vector3 velocity;
     private bool isGrounded;
@@ -153,6 +154,7 @@ public class PlayerController : MonoBehaviour
         else
         {
             canComboJump = false;
+            currentSpeed = speedAtJump * 0.75f;
         }
 
         if (Input.GetButtonDown("Jump") && isGrounded)
@@ -166,6 +168,8 @@ public class PlayerController : MonoBehaviour
 
             float jumpStrength = jumpCount == 1 ? firstJumpForce :
                                  jumpCount == 2 ? secondJumpForce : thirdJumpForce;
+
+            speedAtJump = currentSpeed;
 
             velocity.y = Mathf.Sqrt(jumpStrength * -2f * gravity);
             isJumping = true;

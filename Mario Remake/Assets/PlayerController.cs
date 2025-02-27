@@ -20,15 +20,22 @@ public class PlayerController : MonoBehaviour
 
     [Header("Jumping")]
     [SerializeField] float jumpForce = 2f;
+    [SerializeField] float firstJumpForce = 2f;
+    [SerializeField] float secondJumpForce = 2.5f;
+    [SerializeField] float thirdJumpForce = 3.5f;
+    [SerializeField] float jumpComboTime = 0.2f;
     [SerializeField] float jumpTime = 2f;
     [SerializeField] float fallMultiplier = 1.5f;
     [SerializeField] float gravity = -9.81f;
     [SerializeField] float groundCheckDistance = 0.2f;
     [SerializeField] LayerMask groundMask;
     private float jumpTimeCounter;
+    private float lastGroundedTime;
+    private int jumpCount = 0;
     private Vector3 velocity;
     private bool isGrounded;
     private bool isJumping;
+    private bool canComboJump = false;
 
     [Header("Camera")]
     [SerializeField] Transform cameraTransform;
@@ -95,6 +102,7 @@ public class PlayerController : MonoBehaviour
                     currentSpeed = Mathf.MoveTowards(currentSpeed, moveSpeed, acceleration * Time.deltaTime);
 
                     anim.speed = Mathf.Max(speed / baseSpeed, 0.5f);
+
                 }
                 else
                 {
@@ -105,7 +113,6 @@ public class PlayerController : MonoBehaviour
         }
         else // Limit movement when in air
         {
-            // Reduce movement speed when not on the ground
             float airControlFactor = 0.5f; 
             moveDirection = Vector3.Lerp(moveDirection, Vector3.zero, airControlFactor * Time.deltaTime);
             currentSpeed = Mathf.MoveTowards(currentSpeed, 0f, deceleration * Time.deltaTime);
@@ -118,8 +125,6 @@ public class PlayerController : MonoBehaviour
 
         horizontalVelocity = new Vector3(controller.velocity.x, 0, controller.velocity.z);
         speed = horizontalVelocity.magnitude / 5f;
-
-        Debug.Log(horizontalVelocity);
 
         anim.SetFloat("Speed", controller.velocity.magnitude);
         anim.SetBool("isGrounded", isGrounded);
@@ -137,39 +142,52 @@ public class PlayerController : MonoBehaviour
             velocity.y = -2f;
         }
 
+        if (isGrounded)
+        {
+            if (!canComboJump) 
+            {
+                canComboJump = true;
+                lastGroundedTime = Time.time;
+            }
+        }
+        else
+        {
+            canComboJump = false;
+        }
+
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
+            if (Time.time - lastGroundedTime > jumpComboTime)
+            {
+                jumpCount = 0; 
+            }
+
+            jumpCount = Mathf.Clamp(jumpCount + 1, 1, 3);
+
+            float jumpStrength = jumpCount == 1 ? firstJumpForce :
+                                 jumpCount == 2 ? secondJumpForce : thirdJumpForce;
+
+            velocity.y = Mathf.Sqrt(jumpStrength * -2f * gravity);
             isJumping = true;
-            velocity.y = Mathf.Sqrt(jumpForce * -2f * gravity);
-            jumpTimeCounter = jumpTime;
-            anim.SetTrigger("Jump");
+            lastGroundedTime = Time.time;
+
+            if (jumpCount == 1) anim.SetTrigger("Jump");
+            else if (jumpCount == 2) anim.SetTrigger("DoubleJump");
+            else if (jumpCount == 3) anim.SetTrigger("TripleJump");
+
+            if (jumpCount == 1) Debug.Log("Jump");
+            else if (jumpCount == 2) Debug.Log("DoubleJump");
+            else if (jumpCount == 3) Debug.Log("TripleJump");
+
             Instantiate(jumpDust, transform.position, Quaternion.identity);
-            anim.speed = 1;
-        }
-
-        if (Input.GetButton("Jump") && isJumping)
-        {
-            if (jumpTimeCounter > 0)
-            {
-                velocity.y = Mathf.Sqrt(jumpForce * -2f * gravity);
-                jumpTimeCounter -= Time.deltaTime;
-            }
-            else
-            {
-                isJumping = false;
-            }
-        }
-
-        if (Input.GetButtonUp("Jump"))
-        {
-            isJumping = false;
         }
 
         velocity.y += gravity * (velocity.y < 0 ? fallMultiplier : 1f) * Time.deltaTime;
-
         controller.Move(velocity * Time.deltaTime);
 
         anim.SetBool("isGrounded", isGrounded);
     }
+
+
 
 }
